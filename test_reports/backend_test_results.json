@@ -1,0 +1,162 @@
+{
+  "total_tests": 31,
+  "passed_tests": 29,
+  "success_rate": 93.54838709677419,
+  "detailed_results": [
+    {
+      "test": "Player Login",
+      "success": true,
+      "details": "Status: 200"
+    },
+    {
+      "test": "Player Token Retrieved",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Owner Login",
+      "success": true,
+      "details": "Status: 200"
+    },
+    {
+      "test": "Owner Token Retrieved",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Invalid Login",
+      "success": true,
+      "details": "Status: 401"
+    },
+    {
+      "test": "User Registration",
+      "success": false,
+      "details": "Status: 400, Expected: 200, Error: User already exists"
+    },
+    {
+      "test": "Get Venues",
+      "success": true,
+      "details": "Status: 200"
+    },
+    {
+      "test": "Get Venue Details",
+      "success": true,
+      "details": "Status: 200"
+    },
+    {
+      "test": "Get Venue Grounds",
+      "success": true,
+      "details": "Status: 200"
+    },
+    {
+      "test": "Get Ground Slots",
+      "success": true,
+      "details": "Status: 200"
+    },
+    {
+      "test": "Create Booking",
+      "success": true,
+      "details": "Status: 200"
+    },
+    {
+      "test": "Get My Bookings",
+      "success": true,
+      "details": "Status: 200"
+    },
+    {
+      "test": "Cancel Booking (Should Fail)",
+      "success": true,
+      "details": "Status: 400"
+    },
+    {
+      "test": "Protected Endpoint Without Token",
+      "success": false,
+      "details": "Status: 403, Expected: 401, Error: Not authenticated"
+    },
+    {
+      "test": "Owner Dashboard",
+      "success": true,
+      "details": "Status: 200"
+    },
+    {
+      "test": "Get Owner Venues",
+      "success": true,
+      "details": "Status: 200"
+    },
+    {
+      "test": "Get Owner Grounds",
+      "success": true,
+      "details": "Status: 200"
+    },
+    {
+      "test": "Owner Analytics",
+      "success": true,
+      "details": "Status: 200"
+    },
+    {
+      "test": "Create Venue",
+      "success": true,
+      "details": "Status: 200"
+    },
+    {
+      "test": "Create Ground",
+      "success": true,
+      "details": "Status: 200"
+    },
+    {
+      "test": "Create Slot",
+      "success": true,
+      "details": "Status: 200"
+    },
+    {
+      "test": "Delete Ground",
+      "success": true,
+      "details": "Status: 200"
+    },
+    {
+      "test": "Delete Venue",
+      "success": true,
+      "details": "Status: 200"
+    },
+    {
+      "test": "Unauthorized Owner Access",
+      "success": true,
+      "details": "Status: 403"
+    },
+    {
+      "test": "Non-existent Venue",
+      "success": true,
+      "details": "Status: 404"
+    },
+    {
+      "test": "Invalid Token",
+      "success": true,
+      "details": "Status: 401"
+    },
+    {
+      "test": "Get Venues for Double Booking Test",
+      "success": true,
+      "details": "Status: 200"
+    },
+    {
+      "test": "Get Grounds for Double Booking Test",
+      "success": true,
+      "details": "Status: 200"
+    },
+    {
+      "test": "Get Slots for Double Booking Test",
+      "success": true,
+      "details": "Status: 200"
+    },
+    {
+      "test": "First Booking",
+      "success": true,
+      "details": "Status: 200"
+    },
+    {
+      "test": "Double Booking (Should Fail)",
+      "success": true,
+      "details": "Status: 400"
+    }
+  ]
+}
