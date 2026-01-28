@@ -9,6 +9,7 @@ import MyBookings from './components/player/MyBookings';
 import OwnerDashboard from './components/owner/OwnerDashboard';
 import OwnerAnalytics from './components/owner/OwnerAnalytics';
 import ManageVenues from './components/owner/ManageVenues';
+import VerifyBooking from './components/owner/VerifyBooking';
 import './App.css';
 
 // Determine backend URL at runtime based on current hostname
@@ -97,6 +98,7 @@ function App() {
           <Route path="/owner" element={user && user.role === 'owner' ? <OwnerDashboard /> : <Navigate to="/login" />} />
           <Route path="/owner/analytics" element={user && user.role === 'owner' ? <OwnerAnalytics /> : <Navigate to="/login" />} />
           <Route path="/owner/manage" element={user && user.role === 'owner' ? <ManageVenues /> : <Navigate to="/login" />} />
+          <Route path="/owner/verify-booking" element={user && user.role === 'owner' ? <VerifyBooking /> : <Navigate to="/login" />} />
           
           <Route path="/" element={<Navigate to={user ? (user.role === 'owner' ? '/owner' : '/explore') : '/login'} />} />
         </Routes>

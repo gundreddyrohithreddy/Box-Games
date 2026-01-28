@@ -1,13 +1,16 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 import sqlite3
 from starlette.concurrency import run_in_threadpool
 import os
 import logging
+import random
 from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict, EmailStr
+from pydantic import BaseModel, Field, ConfigDict, EmailStr, field_validator
 from typing import List, Optional
 from datetime import datetime, timezone, timedelta, date, time
 from passlib.context import CryptContext
@@ -27,16 +30,26 @@ def _row_to_dict(cursor, row):
         return None
     return {description[0]: row[idx] for idx, description in enumerate(cursor.description)}
 
+def db_find_one_sync(table: str, where_clause: str, params: tuple = ()):
+    """Synchronous database lookup for verification codes"""
+    cur = conn.cursor()
+    cur.row_factory = _row_to_dict
+    cur.execute(f"SELECT * FROM {table} WHERE {where_clause}", params)
+    return cur.fetchone()
+
 def init_db_sync():
     cur = conn.cursor()
     cur.execute(
         """
         CREATE TABLE IF NOT EXISTS users (
             id TEXT PRIMARY KEY,
-            username TEXT,
+            fullName TEXT,
+            username TEXT UNIQUE,
             email TEXT UNIQUE,
+            mobileNumber TEXT UNIQUE,
             password_hash TEXT,
             role TEXT,
+            verification_code TEXT UNIQUE,
             created_at TEXT
         )
         """
@@ -80,7 +93,10 @@ def init_db_sync():
             id TEXT PRIMARY KEY,
             user_id TEXT,
             slot_id TEXT,
-            booked_at TEXT
+            verification_code TEXT UNIQUE,
+            status TEXT DEFAULT 'pending',
+            booked_at TEXT,
+            verified_at TEXT
         )
         """
     )
@@ -154,6 +170,30 @@ security = HTTPBearer()
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
+# Custom exception handler for validation errors
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request, exc):
+    errors = []
+    for error in exc.errors():
+        field = error['loc'][-1] if error['loc'] else 'unknown'
+        message = error['msg']
+        # Make error messages more user-friendly
+        if message == 'Field required':
+            errors.append(f"{field} is required")
+        elif 'email' in str(field).lower():
+            if 'valid' in message.lower():
+                errors.append("Please enter a valid email address")
+            else:
+                errors.append("Email is required")
+        else:
+            errors.append(f"{field}: {message}")
+    
+    error_detail = " | ".join(errors) if errors else "Validation error"
+    return JSONResponse(
+        status_code=400,
+        content={"detail": error_detail}
+    )
+
 # Add CORS middleware BEFORE including router
 app.add_middleware(
     CORSMiddleware,
@@ -166,19 +206,52 @@ app.add_middleware(
 # ==================== MODELS ====================
 
 class UserRegister(BaseModel):
+    fullName: str
     username: str
+    mobileNumber: str
     email: EmailStr
     password: str
     role: str = "player"  # player, owner, admin
+    
+    @field_validator('password')
+    @classmethod
+    def validate_password(cls, v):
+        if len(v) < 8:
+            raise ValueError('Password must be at least 8 characters')
+        if not any(c.isupper() for c in v):
+            raise ValueError('Password must contain uppercase letter')
+        if not any(c.islower() for c in v):
+            raise ValueError('Password must contain lowercase letter')
+        if not any(c.isdigit() for c in v):
+            raise ValueError('Password must contain number')
+        if not any(c in r'!@#$%^&*()_+-=[]{};\':"|,.<>?/' for c in v):
+            raise ValueError('Password must contain symbol')
+        return v
+
+    @field_validator('mobileNumber')
+    @classmethod
+    def validate_mobile(cls, v):
+        # Remove any non-digit characters except +
+        cleaned = ''.join(c for c in v if c.isdigit() or c == '+')
+        # Check if starts with + and has country code
+        if not cleaned.startswith('+'):
+            raise ValueError('Mobile number must include country code (e.g., +91...)')
+        # Check length (minimum 10 digits after country code)
+        digits_only = cleaned.replace('+', '')
+        if len(digits_only) < 10:
+            raise ValueError('Mobile number must have at least 10 digits after country code')
+        return cleaned
 
 class UserLogin(BaseModel):
-    email: EmailStr
+    identifier: str  # email or username
     password: str
 
 class UserResponse(BaseModel):
     username: str
     email: str
+    mobileNumber: str
     role: str
+    verification_code: str
     created_at: str
 
 class TokenResponse(BaseModel):
@@ -230,13 +303,32 @@ class BookingResponse(BaseModel):
     id: str
     user_id: str
     slot_id: str
+    verification_code: str
     booked_at: str
+    verified_at: Optional[str] = None
     venue_name: Optional[str] = None
     ground_name: Optional[str] = None
     slot_date: Optional[str] = None
     start_time: Optional[str] = None
     end_time: Optional[str] = None
     price: Optional[int] = None
+    status: str = "pending"
+
+class VerifyCodeRequest(BaseModel):
+    verification_code: str
+
+class VerifyCodeResponse(BaseModel):
+    success: bool
+    booking_id: str
+    player_name: str
+    player_email: str
+    mobile_number: str
+    venue_name: str
+    ground_name: str
+    booking_date: str
+    booking_time: str
+    booking_price: int
+    status: str
 
 class AnalyticsResponse(BaseModel):
     venue_name: str
@@ -283,22 +375,38 @@ def require_role(required_roles: List[str]):
         return current_user
     return role_checker
 
+def generate_unique_code():
+    """Generate a unique 6-digit code for bookings"""
+    import string
+    while True:
+        code = ''.join(str(random.randint(0, 9)) for _ in range(6))
+        # Check if code already exists in bookings table
+        existing = db_find_one_sync('bookings', 'verification_code = ?', (code,))
+        if not existing:
+            return code
+
 # ==================== AUTH ROUTES ====================
 
 @api_router.post("/auth/register", response_model=TokenResponse)
 async def register(user: UserRegister):
     # Check if user exists
-    existing_user = await db_find_one('users', 'email = ? OR username = ?', (user.email, user.username))
+    existing_user = await db_find_one('users', 'email = ? OR username = ? OR mobileNumber = ?', (user.email, user.username, user.mobileNumber))
     if existing_user:
         raise HTTPException(status_code=400, detail="User already exists")
+    
+    # Generate unique verification code
+    verification_code = generate_unique_code()
     
     # Create user
     user_doc = {
         "id": str(datetime.now(timezone.utc).timestamp()),
+        "fullName": user.fullName,
         "username": user.username,
+        "mobileNumber": user.mobileNumber,
         "email": user.email,
         "password_hash": hash_password(user.password),
         "role": user.role,
+        "verification_code": verification_code,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     
@@ -313,14 +421,17 @@ async def register(user: UserRegister):
         "user": {
             "username": user_doc["username"],
             "email": user_doc["email"],
+            "mobileNumber": user_doc["mobileNumber"],
             "role": user_doc["role"],
+            "verification_code": verification_code,
             "created_at": user_doc["created_at"]
         }
     }
 
 @api_router.post("/auth/login", response_model=TokenResponse)
 async def login(credentials: UserLogin):
-    user = await db_find_one('users', 'email = ?', (credentials.email,))
+    # Try to find user by email or username
+    user = await db_find_one('users', 'email = ? OR username = ?', (credentials.identifier, credentials.identifier))
     if not user or not verify_password(credentials.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
@@ -344,6 +455,84 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         "email": current_user["email"],
         "role": current_user["role"],
         "created_at": current_user["created_at"]
+    }
+
+@api_router.post("/bookings/verify-code", response_model=VerifyCodeResponse)
+async def verify_code(request: VerifyCodeRequest):
+    """Owner verifies booking code to confirm single booking"""
+    # Find booking by verification code
+    booking = await db_find_one('bookings', 'verification_code = ?', (request.verification_code,))
+    if not booking:
+        raise HTTPException(status_code=404, detail="Invalid verification code")
+    
+    # Find player details
+    player = await db_find_one('users', 'email = ?', (booking["user_id"],))
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+    
+    # Get slot details
+    slot = await db_find_one('slots', 'id = ?', (booking["slot_id"],))
+    if not slot:
+        raise HTTPException(status_code=404, detail="Slot not found")
+    
+    # Get ground details
+    ground = await db_find_one('grounds', 'id = ?', (slot["ground_id"],))
+    if not ground:
+        raise HTTPException(status_code=404, detail="Ground not found")
+    
+    # Get venue details
+    venue = await db_find_one('venues', 'id = ?', (ground["venue_id"],))
+    
+    return {
+        "success": True,
+        "booking_id": booking["id"],
+        "player_name": player["fullName"],
+        "player_email": player["email"],
+        "mobile_number": player["mobileNumber"],
+        "venue_name": venue["name"] if venue else "Unknown",
+        "ground_name": ground["name"],
+        "booking_date": slot["slot_date"],
+        "booking_time": f"{slot['start_time']} - {slot['end_time']}",
+        "booking_price": slot["price"],
+        "status": booking.get("status", "pending")
+    }
+
+@api_router.post("/bookings/confirm-verification")
+async def confirm_verification(request: VerifyCodeRequest, current_user: dict = Depends(require_role(["owner"]))):
+    """Owner confirms single booking after verification"""
+    # Find booking by verification code
+    booking = await db_find_one('bookings', 'verification_code = ?', (request.verification_code,))
+    if not booking:
+        raise HTTPException(status_code=404, detail="Invalid verification code")
+    
+    # Check if already verified
+    if booking.get("status") == "verified":
+        raise HTTPException(status_code=400, detail="Booking already verified")
+    
+    # Get slot and venue to calculate revenue for owner
+    slot = await db_find_one('slots', 'id = ?', (booking["slot_id"],))
+    if not slot:
+        raise HTTPException(status_code=404, detail="Slot not found")
+    
+    # Update single booking to verified
+    def _sync():
+        cur = conn.cursor()
+        verified_at = datetime.now(timezone.utc).isoformat()
+        cur.execute(
+            "UPDATE bookings SET status = ?, verified_at = ? WHERE id = ?",
+            ("verified", verified_at, booking["id"])
+        )
+        conn.commit()
+        return verified_at
+    
+    verified_at = await run_in_threadpool(_sync)
+    
+    return {
+        "success": True,
+        "message": f"Booking verified successfully. ₹{slot['price']} added to your revenue.",
+        "booking_id": booking["id"],
+        "amount_added": slot["price"],
+        "verified_at": verified_at
     }
 
 # ==================== PLAYER ROUTES ====================
@@ -385,11 +574,16 @@ async def create_booking(booking: BookingCreate, current_user: dict = Depends(ge
     if slot.get("is_booked"):
         raise HTTPException(status_code=400, detail="Slot already booked")
     
+    # Generate unique verification code for this booking
+    verification_code = generate_unique_code()
+    
     # Create booking
     booking_doc = {
         "id": str(datetime.now(timezone.utc).timestamp()),
         "user_id": current_user["email"],
         "slot_id": booking.slot_id,
+        "verification_code": verification_code,
+        "status": "pending",
         "booked_at": datetime.now(timezone.utc).isoformat()
     }
     
@@ -400,7 +594,10 @@ async def create_booking(booking: BookingCreate, current_user: dict = Depends(ge
         "id": booking_doc["id"],
         "user_id": booking_doc["user_id"],
         "slot_id": booking_doc["slot_id"],
-        "booked_at": booking_doc["booked_at"]
+        "verification_code": verification_code,
+        "status": "pending",
+        "booked_at": booking_doc["booked_at"],
+        "verified_at": None
     }
 
 @api_router.get("/bookings/my", response_model=List[BookingResponse])
@@ -602,6 +799,17 @@ async def get_owner_dashboard(current_user: dict = Depends(require_role(["owner"
 
 # Include router
 app.include_router(api_router)
+
+# Health check endpoint (after router to avoid conflicts)
+@app.get("/health", tags=["health"])
+async def health_check():
+    """Health check endpoint for container orchestration"""
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT 1")
+        return {"status": "healthy", "database": "connected"}
+    except Exception as e:
+        raise HTTPException(status_code=503, detail="Database connection failed")
 
 logging.basicConfig(
     level=logging.INFO,

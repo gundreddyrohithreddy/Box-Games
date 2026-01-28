@@ -35,6 +35,7 @@ const OwnerDashboard = () => {
         <ul className="sidebar-nav">
           <li><Link to="/owner" className="active" data-testid="owner-dashboard-nav">📊 Dashboard</Link></li>
           <li><Link to="/owner/manage" data-testid="manage-venues-nav">🏟️ Manage Venues</Link></li>
+          <li><Link to="/owner/verify-booking" data-testid="verify-booking-nav">✓ Verify Booking</Link></li>
           <li><Link to="/owner/analytics" data-testid="analytics-nav">📈 Analytics</Link></li>
           <li><button onClick={logout} data-testid="logout-btn">🚪 Logout</button></li>
         </ul>

@@ -66,6 +66,66 @@ const MyBookings = () => {
           <p>View and manage your bookings</p>
         </div>
 
+        {/* Verification Codes Section */}
+        {bookings.length > 0 && (
+          <div style={{
+            backgroundColor: '#fef3c7',
+            padding: '15px',
+            borderRadius: '8px',
+            marginBottom: '20px',
+            border: '2px solid #f59e0b'
+          }}>
+            <p style={{ margin: '0 0 10px 0', color: '#92400e', fontWeight: 'bold', fontSize: '14px' }}>
+              🔐 Verification Codes (Show these when you visit the ground)
+            </p>
+            <div style={{ display: 'grid', gap: '10px' }}>
+              {bookings.map((booking) => (
+                <div key={booking.id} style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  backgroundColor: 'white',
+                  padding: '10px',
+                  borderRadius: '6px',
+                  border: '2px dashed #f59e0b'
+                }}>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: '0 0 5px 0', fontSize: '12px', color: '#666' }}>
+                      {booking.venue_name} - {booking.ground_name}
+                    </p>
+                    <span style={{
+                      fontSize: '24px',
+                      fontWeight: 'bold',
+                      color: '#dc2626',
+                      fontFamily: 'monospace',
+                      letterSpacing: '2px'
+                    }}>
+                      {booking.verification_code || 'N/A'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(booking.verification_code || '');
+                      alert('Code copied!');
+                    }}
+                    style={{
+                      padding: '8px 12px',
+                      backgroundColor: '#f59e0b',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '12px'
+                    }}
+                  >
+                    📋 Copy
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {loading ? (
           <div className="loading-screen">
             <div className="loading-spinner"></div>

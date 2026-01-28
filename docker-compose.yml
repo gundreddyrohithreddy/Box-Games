@@ -3,23 +3,46 @@ services:
     build: ./backend
     container_name: app-backend
     restart: always
-    # Minimal env for backend (SQLite is used now)
     environment:
       - CORS_ORIGINS=*
       - JWT_SECRET_KEY=boxgames-secret-key-change-in-production-12345
     ports:
       - "8000:8000"
+    volumes:
+      - db_data:/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - app-network
 
   frontend:
     build: ./frontend
     container_name: app-frontend
     restart: always
     depends_on:
-      - backend
-    # Ensure the React app talks to the backend service by hostname when containerized
+      backend:
+        condition: service_healthy
     environment:
-      - REACT_APP_BACKEND_URL=http://app-backend:8000
+      - REACT_APP_BACKEND_URL=http://localhost:8000
     ports:
       - "3000:3000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 45s
+    networks:
+      - app-network
 
-# No external volumes required for SQLite-based backend
+volumes:
+  db_data:
+    driver: local
+
+networks:
+  app-network:
+    driver: bridge
