@@ -1,0 +1,50 @@
+# Box-Games UX Improvements Walkthrough
+
+## UI & UX Polish ("Top 1%" Quality) ✓
+Implemented a premium **"Cyberpunk Glass"** design system.
+
+### 1. Visual Theme
+- **Background**: Deep charcoal with subtle radial gradients (no more plain black).
+- **Glassmorphism**: Cards and modals use backdrop-filter blur and semi-transparent backgrounds.
+- **Typography**: Switched to `Manrope` (headings) and `Inter` (body) for clean, modern readability.
+- **Colors**:
+  - Primary: Neon Green (`#39ff14`)
+  - Surface: Dark Glass (`rgba(20, 20, 20, 0.7)`)
+  - Text: High contrast white with muted gray secondary text.
+
+### 2. Component Refactoring
+- **App.css**: Complete overhaul using CSS Variables (`--primary`, `--bg-card`, etc.) for consistency.
+- **ConfirmDialog.js**: Refactored from inline styles to CSS classes (`.dialog-content`, `.dialog-overlay`).
+- **Login.js**: Cleaned up inline styles for links.
+- **Inputs**: Added glow effects and floating-style focus states.
+
+---
+
+## Changes Made (Previous)
+
+### 3. Mobile Menu ✓
+Hamburger menu for mobile devices (< 768px).
+**Feature:** [MobileSidebar.js](file:///c:/Users/vange/OneDrive/Desktop/Box-Games/frontend/src/components/MobileSidebar.js) with overlay and slide-in animation.
+
+### 4. Forgot Password ✓
+Full flow: Email -> Code -> New Password.
+**Frontend:** [ForgotPassword.js](file:///c:/Users/vange/OneDrive/Desktop/Box-Games/frontend/src/components/ForgotPassword.js)
+**Backend:** `/auth/forgot-password` endpoints.
+
+### 5. Toast Notifications ✓
+Replaced `alert()` with specific toast messages.
+
+### 6. Confirmation Dialogs ✓
+Styled dialogs for all destructive actions.
+
+### 7. Loading Skeletons ✓
+Shimmer effect components for dashboards.
+
+---
+
+## Docker Verification
+The app is ready to run with the new UI.
+```powershell
+docker-compose up --build -d
+```
+Access at http://localhost:3000
