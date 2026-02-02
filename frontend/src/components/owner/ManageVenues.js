@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import { toast } from 'sonner';
 import { AuthContext } from '../../App';
+import ConfirmDialog from '../ConfirmDialog';
 
 const ManageVenues = () => {
   const { user, token, logout, API } = useContext(AuthContext);
@@ -15,17 +17,17 @@ const ManageVenues = () => {
   const [selectedVenue, setSelectedVenue] = useState(null);
   const [selectedGround, setSelectedGround] = useState(null);
   const [viewMode, setViewMode] = useState('list'); // 'list', 'venue-details', 'ground-details'
-  const [venueForm, setVenueForm] = useState({ 
-    name: '', 
-    location: '', 
-    city: '', 
-    state: '', 
-    country: '', 
+  const [venueForm, setVenueForm] = useState({
+    name: '',
+    location: '',
+    city: '',
+    state: '',
+    country: '',
     pincode: '',
     latitude: null,
     longitude: null,
-    image_url: '', 
-    imageFile: null 
+    image_url: '',
+    imageFile: null
   });
   const [imagePreview, setImagePreview] = useState(null);
   const [imageUploadMode, setImageUploadMode] = useState('url'); // 'url' or 'file'
@@ -49,6 +51,7 @@ const ManageVenues = () => {
     price_per_slot: 1000
   });
   const [generatedSlots, setGeneratedSlots] = useState([]);
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, type: null, id: null });
 
   const fetchData = useCallback(async () => {
     try {
@@ -101,17 +104,17 @@ const ManageVenues = () => {
 
   // Context-aware button handlers
   const handleOpenVenueModal = () => {
-    setVenueForm({ 
-      name: '', 
-      location: '', 
-      city: '', 
-      state: '', 
-      country: '', 
+    setVenueForm({
+      name: '',
+      location: '',
+      city: '',
+      state: '',
+      country: '',
       pincode: '',
       latitude: null,
       longitude: null,
-      image_url: '', 
-      imageFile: null 
+      image_url: '',
+      imageFile: null
     });
     setImagePreview(null);
     setImageUploadMode('url');
@@ -201,7 +204,7 @@ const ManageVenues = () => {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           const { latitude, longitude } = position.coords;
-          
+
           // Try to reverse geocode to get address
           try {
             const response = await fetch(
@@ -213,10 +216,10 @@ const ManageVenues = () => {
               const state = data.address.state || '';
               const country = data.address.country || '';
               const pincode = data.address.postcode || '';
-              
+
               // Format location like delivery apps: "City, State, Country"
               const formattedLocation = [city, state, country].filter(Boolean).join(', ');
-              
+
               setVenueForm(prev => ({
                 ...prev,
                 city,
@@ -271,18 +274,18 @@ const ManageVenues = () => {
         `https://nominatim.openstreetmap.org/search?format=json&postalcode=${pincode}&country=IN`
       );
       const data = await response.json();
-      
+
       if (data && data.length > 0) {
         const result = data[0];
         const addressData = result.address || {};
-        
+
         const city = addressData.city || addressData.town || addressData.village || '';
         const state = addressData.state || '';
         const country = addressData.country || 'India';
-        
+
         // Format location like delivery apps: "City, State, Country"
         const formattedLocation = [city, state, country].filter(Boolean).join(', ');
-        
+
         setVenueForm(prev => ({
           ...prev,
           pincode,
@@ -310,26 +313,26 @@ const ManageVenues = () => {
       await axios.post(`${API}/owner/venues`, venueForm, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      alert('Venue created successfully');
+      toast.success('Venue created successfully');
       setShowVenueModal(false);
-      setVenueForm({ 
-        name: '', 
-        location: '', 
-        city: '', 
-        state: '', 
-        country: '', 
+      setVenueForm({
+        name: '',
+        location: '',
+        city: '',
+        state: '',
+        country: '',
         pincode: '',
         latitude: null,
         longitude: null,
-        image_url: '', 
-        imageFile: null 
+        image_url: '',
+        imageFile: null
       });
       setImagePreview(null);
       setImageUploadMode('url');
       setLocationMode('manual');
       fetchData();
     } catch (error) {
-      alert('Failed to create venue');
+      toast.error('Failed to create venue');
     }
   };
 
@@ -339,12 +342,12 @@ const ManageVenues = () => {
       await axios.post(`${API}/owner/grounds`, groundForm, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      alert('Ground created successfully');
+      toast.success('Ground created successfully');
       setShowGroundModal(false);
       setGroundForm({ name: '', venue_id: '' });
       fetchData();
     } catch (error) {
-      alert('Failed to create ground');
+      toast.error('Failed to create ground');
     }
   };
 
@@ -354,7 +357,7 @@ const ManageVenues = () => {
       await axios.post(`${API}/owner/slots`, slotForm, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      alert('Slot created successfully');
+      toast.success('Slot created successfully');
       setShowSlotModal(false);
       setSlotForm({
         ground_id: '',
@@ -364,13 +367,13 @@ const ManageVenues = () => {
         price: 1000
       });
     } catch (error) {
-      alert('Failed to create slot');
+      toast.error('Failed to create slot');
     }
   };
 
   const generateSlots = () => {
     if (!slotConfig.ground_id || !slotConfig.slot_date || !slotConfig.start_time || !slotConfig.end_time || !slotConfig.duration || !slotConfig.price_per_slot) {
-      alert('Please fill all fields');
+      toast.warning('Please fill all fields');
       return;
     }
 
@@ -384,11 +387,11 @@ const ManageVenues = () => {
 
     while (currentTime < endTime) {
       const nextTime = new Date(currentTime.getTime() + durationMinutes * 60000);
-      
+
       if (nextTime <= endTime) {
         const startTimeStr = currentTime.toTimeString().slice(0, 5);
         const endTimeStr = nextTime.toTimeString().slice(0, 5);
-        
+
         slots.push({
           id: slotNumber,
           ground_id: slotConfig.ground_id,
@@ -398,7 +401,7 @@ const ManageVenues = () => {
           duration: durationMinutes,
           price: slotConfig.price_per_slot
         });
-        
+
         slotNumber++;
         currentTime = nextTime;
       } else {
@@ -407,7 +410,7 @@ const ManageVenues = () => {
     }
 
     if (slots.length === 0) {
-      alert('No slots can be generated with these settings');
+      toast.warning('No slots can be generated with these settings');
       return;
     }
 
@@ -420,7 +423,7 @@ const ManageVenues = () => {
 
   const confirmAllSlots = async () => {
     if (generatedSlots.length === 0) {
-      alert('No slots to confirm');
+      toast.warning('No slots to confirm');
       return;
     }
 
@@ -436,7 +439,7 @@ const ManageVenues = () => {
           headers: { Authorization: `Bearer ${token}` }
         });
       }
-      alert(`${generatedSlots.length} slots created successfully`);
+      toast.success(`${generatedSlots.length} slots created successfully`);
       setShowSlotModal(false);
       setGeneratedSlots([]);
       setSlotConfig({
@@ -450,34 +453,49 @@ const ManageVenues = () => {
       fetchData();
     } catch (error) {
       console.error('Error creating slots:', error);
-      alert('Failed to create some slots');
+      toast.error('Failed to create some slots');
     }
   };
 
   const handleDeleteVenue = async (venueId) => {
-    if (!window.confirm('Are you sure you want to delete this venue?')) return;
     try {
       await axios.delete(`${API}/owner/venues/${venueId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      alert('Venue deleted successfully');
+      toast.success('Venue deleted successfully');
       fetchData();
     } catch (error) {
-      alert('Failed to delete venue');
+      toast.error('Failed to delete venue');
     }
   };
 
   const handleDeleteGround = async (groundId) => {
-    if (!window.confirm('Are you sure you want to delete this ground?')) return;
     try {
       await axios.delete(`${API}/owner/grounds/${groundId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      alert('Ground deleted successfully');
+      toast.success('Ground deleted successfully');
       fetchData();
     } catch (error) {
-      alert('Failed to delete ground');
+      toast.error('Failed to delete ground');
     }
+  };
+
+  const openDeleteDialog = (type, id) => {
+    setConfirmDialog({ isOpen: true, type, id });
+  };
+
+  const closeDeleteDialog = () => {
+    setConfirmDialog({ isOpen: false, type: null, id: null });
+  };
+
+  const confirmDelete = () => {
+    if (confirmDialog.type === 'venue') {
+      handleDeleteVenue(confirmDialog.id);
+    } else if (confirmDialog.type === 'ground') {
+      handleDeleteGround(confirmDialog.id);
+    }
+    closeDeleteDialog();
   };
 
   return (
@@ -510,14 +528,14 @@ const ManageVenues = () => {
               <button className="btn-primary" onClick={handleOpenSlotModal} data-testid="create-slot-btn">+ Create Slot</button>
             </>
           )}
-          
+
           {viewMode === 'venue-details' && (
             <>
               <button className="btn-primary" onClick={handleOpenGroundModal} data-testid="create-ground-btn">+ Create Ground in {selectedVenue?.name}</button>
               <button className="btn-primary" onClick={handleOpenSlotModal} data-testid="create-slot-btn">+ Create Slots</button>
             </>
           )}
-          
+
           {viewMode === 'ground-details' && (
             <button className="btn-primary" onClick={handleOpenSlotModal} data-testid="create-slot-btn">+ Create Slots in {selectedGround?.name}</button>
           )}
@@ -535,9 +553,9 @@ const ManageVenues = () => {
                 <h2 style={{ marginTop: '40px', marginBottom: '20px', color: '#fff' }}>Your Venues</h2>
                 <div className="venue-grid">
                   {venues.map((venue) => (
-                    <div 
-                      key={venue.id} 
-                      className="venue-card clickable" 
+                    <div
+                      key={venue.id}
+                      className="venue-card clickable"
                       data-testid={`venue-${venue.id}`}
                       onClick={() => handleVenueClick(venue)}
                     >
@@ -545,12 +563,12 @@ const ManageVenues = () => {
                       <div className="venue-info">
                         <h3>{venue.name}</h3>
                         <p className="venue-location">📍 {venue.location}</p>
-                        <button 
-                          className="btn-danger" 
+                        <button
+                          className="btn-danger"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDeleteVenue(venue.id);
-                          }} 
+                            openDeleteDialog('venue', venue.id);
+                          }}
                           data-testid={`delete-venue-${venue.id}`}
                         >
                           Delete Venue
@@ -578,7 +596,7 @@ const ManageVenues = () => {
                             <td>{ground.name}</td>
                             <td>{venue?.name || 'Unknown'}</td>
                             <td>
-                              <button className="btn-danger" onClick={() => handleDeleteGround(ground.id)} data-testid={`delete-ground-${ground.id}`}>
+                              <button className="btn-danger" onClick={() => openDeleteDialog('ground', ground.id)} data-testid={`delete-ground-${ground.id}`}>
                                 Delete
                               </button>
                             </td>
@@ -597,7 +615,7 @@ const ManageVenues = () => {
                   <button className="btn-back" onClick={handleBackClick}>← Back to Venues</button>
                   <h2>{selectedVenue.name}</h2>
                 </div>
-                
+
                 <div className="venue-details-card">
                   <img src={selectedVenue.image_url} alt={selectedVenue.name} className="details-image" />
                   <div className="venue-details-info">
@@ -610,8 +628,8 @@ const ManageVenues = () => {
                 <div className="grounds-list">
                   {grounds.filter(g => g.venue_id === selectedVenue.id).length > 0 ? (
                     grounds.filter(g => g.venue_id === selectedVenue.id).map((ground) => (
-                      <div 
-                        key={ground.id} 
+                      <div
+                        key={ground.id}
                         className="ground-item clickable"
                         onClick={() => handleGroundClick(ground)}
                         data-testid={`ground-detail-${ground.id}`}
@@ -620,7 +638,7 @@ const ManageVenues = () => {
                           <h4>{ground.name}</h4>
                           <p className="ground-id">ID: {ground.id}</p>
                         </div>
-                        <button 
+                        <button
                           className="btn-view-slots"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -629,11 +647,11 @@ const ManageVenues = () => {
                         >
                           View Slots →
                         </button>
-                        <button 
-                          className="btn-danger" 
+                        <button
+                          className="btn-danger"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDeleteGround(ground.id);
+                            openDeleteDialog('ground', ground.id);
                           }}
                         >
                           Delete
@@ -715,17 +733,17 @@ const ManageVenues = () => {
                 <h2>Create New Venue</h2>
                 <button className="btn-close" onClick={() => {
                   setShowVenueModal(false);
-                  setVenueForm({ 
-                    name: '', 
-                    location: '', 
-                    city: '', 
-                    state: '', 
-                    country: '', 
+                  setVenueForm({
+                    name: '',
+                    location: '',
+                    city: '',
+                    state: '',
+                    country: '',
                     pincode: '',
                     latitude: null,
                     longitude: null,
-                    image_url: '', 
-                    imageFile: null 
+                    image_url: '',
+                    imageFile: null
                   });
                   setImagePreview(null);
                   setImageUploadMode('url');
@@ -743,7 +761,7 @@ const ManageVenues = () => {
                     data-testid="venue-name-input"
                   />
                 </div>
-                
+
                 {/* Location Input Mode Tabs */}
                 <div className="form-group">
                   <label>Location</label>
@@ -940,7 +958,7 @@ const ManageVenues = () => {
                     data-testid="ground-name-input"
                   />
                 </div>
-                
+
                 {viewMode === 'venue-details' && selectedVenue ? (
                   <div className="form-group">
                     <label>Venue</label>
@@ -965,7 +983,7 @@ const ManageVenues = () => {
                     </select>
                   </div>
                 )}
-                
+
                 <button type="submit" className="btn-primary" data-testid="submit-ground-btn">Create Ground</button>
               </form>
             </div>
@@ -1022,7 +1040,7 @@ const ManageVenues = () => {
                           const filteredGrounds = viewMode === 'venue-details' && selectedVenue
                             ? grounds.filter(g => g.venue_id === selectedVenue.id)
                             : grounds;
-                          
+
                           return filteredGrounds.map((ground) => {
                             const venue = venues.find(v => v.id === ground.venue_id);
                             return (
@@ -1156,6 +1174,19 @@ const ManageVenues = () => {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={closeDeleteDialog}
+        onConfirm={confirmDelete}
+        title={confirmDialog.type === 'venue' ? 'Delete Venue' : 'Delete Ground'}
+        message={confirmDialog.type === 'venue'
+          ? 'Are you sure you want to delete this venue? All associated grounds and slots will also be deleted.'
+          : 'Are you sure you want to delete this ground? All associated slots will also be deleted.'}
+        confirmText="Yes, Delete"
+        cancelText="Cancel"
+        confirmVariant="danger"
+      />
     </div>
   );
 };

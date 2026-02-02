@@ -443,7 +443,9 @@ async def login(credentials: UserLogin):
         "user": {
             "username": user["username"],
             "email": user["email"],
+            "mobileNumber": user["mobileNumber"],
             "role": user["role"],
+            "verification_code": user["verification_code"],
             "created_at": user["created_at"]
         }
     }
@@ -453,9 +455,84 @@ async def get_me(current_user: dict = Depends(get_current_user)):
     return {
         "username": current_user["username"],
         "email": current_user["email"],
+        "mobileNumber": current_user["mobileNumber"],
         "role": current_user["role"],
+        "verification_code": current_user["verification_code"],
         "created_at": current_user["created_at"]
     }
+
+# Password reset storage (in-memory for simplicity, use Redis in production)
+password_reset_codes = {}
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class VerifyResetCodeRequest(BaseModel):
+    email: str
+    verification_code: str
+
+class ResetPasswordRequest(BaseModel):
+    email: str
+    verification_code: str
+    new_password: str
+
+@api_router.post("/auth/forgot-password")
+async def forgot_password(request: ForgotPasswordRequest):
+    """Send password reset verification code"""
+    user = await db_find_one('users', 'email = ?', (request.email,))
+    if not user:
+        # Don't reveal if email exists
+        return {"message": "If an account exists with this email, a verification code has been sent"}
+    
+    # Generate a 6-digit code
+    import random
+    reset_code = str(random.randint(100000, 999999))
+    
+    # Store code with expiry (in production, use Redis with TTL)
+    password_reset_codes[request.email] = {
+        "code": reset_code,
+        "expires": datetime.utcnow().isoformat()
+    }
+    
+    # In production, send email with the code
+    # For now, we'll use the user's verification_code as the reset code for simplicity
+    print(f"Password reset code for {request.email}: {reset_code}")
+    
+    return {"message": "Verification code sent to your email", "code": reset_code}  # Remove code in production!
+
+@api_router.post("/auth/verify-reset-code")
+async def verify_reset_code(request: VerifyResetCodeRequest):
+    """Verify the password reset code"""
+    stored = password_reset_codes.get(request.email)
+    if not stored or stored["code"] != request.verification_code:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification code")
+    
+    return {"message": "Code verified successfully"}
+
+@api_router.post("/auth/reset-password")
+async def reset_password(request: ResetPasswordRequest):
+    """Reset password with verified code"""
+    stored = password_reset_codes.get(request.email)
+    if not stored or stored["code"] != request.verification_code:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification code")
+    
+    user = await db_find_one('users', 'email = ?', (request.email,))
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Hash new password
+    hashed_password = pwd_context.hash(request.new_password)
+    
+    # Update password in database
+    await db_execute(
+        'UPDATE users SET password = ? WHERE email = ?',
+        (hashed_password, request.email)
+    )
+    
+    # Remove used reset code
+    del password_reset_codes[request.email]
+    
+    return {"message": "Password reset successfully"}
 
 @api_router.post("/bookings/verify-code", response_model=VerifyCodeResponse)
 async def verify_code(request: VerifyCodeRequest):

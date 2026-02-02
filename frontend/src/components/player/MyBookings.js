@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import { toast } from 'sonner';
 import { AuthContext } from '../../App';
+import ConfirmDialog from '../ConfirmDialog';
 
 const MyBookings = () => {
   const { user, token, logout, API } = useContext(AuthContext);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [confirmDialog, setConfirmDialog] = useState({ isOpen: false, bookingId: null });
 
   const fetchBookings = useCallback(async () => {
     try {
@@ -26,17 +29,23 @@ const MyBookings = () => {
   }, [fetchBookings]);
 
   const handleCancelBooking = async (bookingId) => {
-    if (!window.confirm('Are you sure you want to cancel this booking?')) return;
-
     try {
       await axios.delete(`${API}/bookings/${bookingId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      alert('Booking cancelled successfully');
+      toast.success('Booking cancelled successfully');
       fetchBookings();
     } catch (error) {
-      alert(error.response?.data?.detail || 'Failed to cancel booking');
+      toast.error(error.response?.data?.detail || 'Failed to cancel booking');
     }
+  };
+
+  const openCancelDialog = (bookingId) => {
+    setConfirmDialog({ isOpen: true, bookingId });
+  };
+
+  const closeCancelDialog = () => {
+    setConfirmDialog({ isOpen: false, bookingId: null });
   };
 
   const canCancelBooking = (slotDate, startTime) => {
@@ -56,6 +65,7 @@ const MyBookings = () => {
         <ul className="sidebar-nav">
           <li><Link to="/explore" data-testid="explore-nav">🏟️ Explore Venues</Link></li>
           <li><Link to="/my-bookings" className="active" data-testid="my-bookings-nav">📅 My Bookings</Link></li>
+          <li><Link to="/profile" data-testid="profile-nav">👤 Profile</Link></li>
           <li><button onClick={logout} data-testid="logout-btn">🚪 Logout</button></li>
         </ul>
       </div>
@@ -106,7 +116,7 @@ const MyBookings = () => {
                   <button
                     onClick={() => {
                       navigator.clipboard.writeText(booking.verification_code || '');
-                      alert('Code copied!');
+                      toast.success('Code copied!');
                     }}
                     style={{
                       padding: '8px 12px',
@@ -160,7 +170,7 @@ const MyBookings = () => {
                 {canCancelBooking(booking.slot_date, booking.start_time) && (
                   <button
                     className="btn-cancel"
-                    onClick={() => handleCancelBooking(booking.id)}
+                    onClick={() => openCancelDialog(booking.id)}
                     data-testid={`cancel-booking-${booking.id}`}
                   >
                     Cancel Booking
@@ -178,6 +188,17 @@ const MyBookings = () => {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={closeCancelDialog}
+        onConfirm={() => handleCancelBooking(confirmDialog.bookingId)}
+        title="Cancel Booking"
+        message="Are you sure you want to cancel this booking? This action cannot be undone."
+        confirmText="Yes, Cancel"
+        cancelText="No, Keep It"
+        confirmVariant="danger"
+      />
     </div>
   );
 };

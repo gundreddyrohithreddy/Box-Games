@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../../App';
+import { KPIGridSkeleton } from '../KPICardSkeleton';
 
 const OwnerDashboard = () => {
   const { user, token, logout, API } = useContext(AuthContext);
@@ -37,6 +38,7 @@ const OwnerDashboard = () => {
           <li><Link to="/owner/manage" data-testid="manage-venues-nav">🏟️ Manage Venues</Link></li>
           <li><Link to="/owner/verify-booking" data-testid="verify-booking-nav">✓ Verify Booking</Link></li>
           <li><Link to="/owner/analytics" data-testid="analytics-nav">📈 Analytics</Link></li>
+          <li><Link to="/profile" data-testid="profile-nav">👤 Profile</Link></li>
           <li><button onClick={logout} data-testid="logout-btn">🚪 Logout</button></li>
         </ul>
       </div>
@@ -48,10 +50,7 @@ const OwnerDashboard = () => {
         </div>
 
         {loading ? (
-          <div className="loading-screen">
-            <div className="loading-spinner"></div>
-            <p>Loading dashboard...</p>
-          </div>
+          <KPIGridSkeleton count={4} />
         ) : (
           <div className="kpi-grid">
             <div className="kpi-card" data-testid="total-venues">

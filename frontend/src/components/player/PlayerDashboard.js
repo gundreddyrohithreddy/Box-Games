@@ -2,6 +2,7 @@ import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { AuthContext } from '../../App';
+import { VenueGridSkeleton } from '../VenueCardSkeleton';
 
 const PlayerDashboard = () => {
   const { user, token, logout, API } = useContext(AuthContext);
@@ -48,6 +49,7 @@ const PlayerDashboard = () => {
         <ul className="sidebar-nav">
           <li><Link to="/explore" className="active" data-testid="explore-nav">🏟️ Explore Venues</Link></li>
           <li><Link to="/my-bookings" data-testid="my-bookings-nav">📅 My Bookings</Link></li>
+          <li><Link to="/profile" data-testid="profile-nav">👤 Profile</Link></li>
           <li><button onClick={logout} data-testid="logout-btn">🚪 Logout</button></li>
         </ul>
       </div>
@@ -69,10 +71,7 @@ const PlayerDashboard = () => {
         </div>
 
         {loading ? (
-          <div className="loading-screen">
-            <div className="loading-spinner"></div>
-            <p>Loading venues...</p>
-          </div>
+          <VenueGridSkeleton count={6} />
         ) : filteredVenues.length > 0 ? (
           <div className="venue-grid">
             {filteredVenues.map((venue) => (

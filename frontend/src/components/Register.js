@@ -1,12 +1,13 @@
 import React, { useState, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { toast } from 'sonner';
 import { AuthContext } from '../App';
 
 // Helper function to extract error message
 const getErrorMessage = (error) => {
   if (typeof error === 'string') return error;
-  
+
   // Check for detail field first
   if (error?.response?.data?.detail) {
     const detail = error.response.data.detail;
@@ -21,7 +22,7 @@ const getErrorMessage = (error) => {
       }).join('\n');
     }
   }
-  
+
   // Check for validation errors array (Pydantic v2)
   if (error?.response?.data?.errors && Array.isArray(error.response.data.errors)) {
     return error.response.data.errors.map(err => {
@@ -31,12 +32,12 @@ const getErrorMessage = (error) => {
       return `${field}: ${msg}`;
     }).join('\n');
   }
-  
+
   // Fallback error message
   if (error?.response?.status === 422) {
     return 'Invalid input. Please check all required fields.';
   }
-  
+
   return error?.message || 'An error occurred. Please try again.';
 };
 
@@ -84,22 +85,22 @@ const Register = () => {
   // Format mobile number with automatic country code
   const handleMobileChange = (e) => {
     let value = e.target.value;
-    
+
     // Remove all non-digit and non-plus characters
     let cleaned = value.replace(/[^\d+]/g, '');
-    
+
     // If it doesn't start with +, add default country code +91 (India)
     if (cleaned === '' || !cleaned.startsWith('+')) {
       if (cleaned.length > 0) {
         cleaned = '+91' + cleaned.replace(/^\+91/, '');
       }
     }
-    
+
     // Limit to reasonable length (country code + 10 digits = 13 chars max)
     if (cleaned.length > 13) {
       cleaned = cleaned.slice(0, 13);
     }
-    
+
     setFormData({ ...formData, mobileNumber: cleaned });
   };
 
@@ -119,7 +120,7 @@ const Register = () => {
     try {
       const response = await axios.post(`${API}/auth/register`, formData);
       login(response.data.access_token, response.data.user);
-      
+
       // Display verification code
       setVerificationCode(response.data.user.verification_code);
     } catch (err) {
@@ -160,7 +161,7 @@ const Register = () => {
             <button
               onClick={() => {
                 navigator.clipboard.writeText(verificationCode);
-                alert('Code copied to clipboard!');
+                toast.success('Code copied to clipboard!');
               }}
               style={{
                 marginTop: '10px',

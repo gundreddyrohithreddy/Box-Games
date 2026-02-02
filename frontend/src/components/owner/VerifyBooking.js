@@ -1,6 +1,7 @@
 import React, { useState, useContext } from 'react';
 import { AuthContext } from '../../App';
 import axios from 'axios';
+import { toast } from 'sonner';
 
 const VerifyBooking = () => {
   const { API } = useContext(AuthContext);
@@ -39,8 +40,8 @@ const VerifyBooking = () => {
         verification_code: verificationCode.trim()
       });
       setVerified(true);
-      alert(`✓ ${response.data.message}`);
-      
+      toast.success(response.data.message);
+
       // Reset form after 2 seconds
       setTimeout(() => {
         setVerificationCode('');
@@ -173,8 +174,8 @@ const VerifyBooking = () => {
                 🕐 {bookingDetails.booking_time}
               </p>
               <p style={{ margin: '8px 0', color: '#6b7280' }}>
-                Status: <span style={{ 
-                  padding: '2px 8px', 
+                Status: <span style={{
+                  padding: '2px 8px',
                   backgroundColor: bookingDetails.status === 'verified' ? '#dcfce7' : '#fef3c7',
                   color: bookingDetails.status === 'verified' ? '#166534' : '#92400e',
                   borderRadius: '3px',

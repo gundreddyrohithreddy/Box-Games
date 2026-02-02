@@ -6,7 +6,7 @@ import { AuthContext } from '../App';
 // Helper function to extract error message
 const getErrorMessage = (error) => {
   if (typeof error === 'string') return error;
-  
+
   // Check for detail field first
   if (error?.response?.data?.detail) {
     const detail = error.response.data.detail;
@@ -21,7 +21,7 @@ const getErrorMessage = (error) => {
       }).join('\n');
     }
   }
-  
+
   // Check for validation errors array (Pydantic v2)
   if (error?.response?.data?.errors && Array.isArray(error.response.data.errors)) {
     return error.response.data.errors.map(err => {
@@ -31,21 +31,21 @@ const getErrorMessage = (error) => {
       return `${field}: ${msg}`;
     }).join('\n');
   }
-  
+
   // Fallback error message
   if (error?.response?.status === 422) {
     return 'Invalid input. Please check your credentials.';
   }
-  
+
   return error?.message || 'An error occurred. Please try again.';
 };
 
 const Login = () => {
   const { login, API } = useContext(AuthContext);
   const navigate = useNavigate();
-  const [credentials, setCredentials] = useState({ 
+  const [credentials, setCredentials] = useState({
     identifier: '', // email or username
-    password: '' 
+    password: ''
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -61,7 +61,7 @@ const Login = () => {
         password: credentials.password
       });
       login(response.data.access_token, response.data.user);
-      
+
       if (response.data.user.role === 'owner') {
         navigate('/owner');
       } else {
@@ -104,6 +104,12 @@ const Login = () => {
               onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
               required
             />
+          </div>
+
+          <div className="forgot-password-link-container">
+            <Link to="/forgot-password" className="forgot-password-link">
+              Forgot Password?
+            </Link>
           </div>
 
           <button type="submit" className="btn-primary" disabled={loading}>
